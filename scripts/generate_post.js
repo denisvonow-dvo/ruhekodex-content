@@ -89,7 +89,7 @@ function parsePost(filepath) {
 
   // Extract Text-Overlay
   const overlayMatch = content.match(/## Text-Overlay\s*```\s*([\s\S]*?)\s*```/);
-  const overlayText = overlayMatch ? overlayMatch[1].trim() : '';
+  const overlayText = overlayMatch ? overlayMatch[1].trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n') : '';
 
   // Split into slides by double newlines, filter out @handle lines
   const slides = overlayText
