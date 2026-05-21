@@ -115,13 +115,16 @@ async function blatoCall(toolName, args) {
   }, {
     headers: {
       'Authorization': `Bearer ${BLOTATO_API_KEY}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream'
     }
   });
 
   const content = res.data?.result?.content;
   if (!content) throw new Error(`Blotato ${toolName} fehlgeschlagen: ${JSON.stringify(res.data)}`);
-  return JSON.parse(content[0]?.text || '{}');
+  const text = content[0]?.text || '{}';
+  if (res.data?.result?.isError) throw new Error(text);
+  try { return JSON.parse(text); } catch { return { raw: text }; }
 }
 
 async function uploadImage(imagePath) {
@@ -133,8 +136,8 @@ async function uploadImage(imagePath) {
     contentType: 'image/png'
   });
 
-  const uploadUrl = presigned.item?.uploadUrl || presigned.uploadUrl;
-  const mediaUrl = presigned.item?.mediaUrl || presigned.mediaUrl;
+  const uploadUrl = presigned.item?.uploadUrl || presigned.uploadUrl || presigned.presignedUrl;
+  const mediaUrl = presigned.item?.mediaUrl || presigned.mediaUrl || presigned.publicUrl;
 
   if (!uploadUrl) throw new Error(`Kein uploadUrl: ${JSON.stringify(presigned)}`);
 
@@ -156,12 +159,23 @@ async function createPost(mediaUrls, caption) {
 
   for (const account of accounts) {
     try {
-      const result = await blatoCall('blotato_create_post', {
+      const args = {
         text: caption,
         mediaUrls,
-        accountId: account.id
-      });
-      console.log(`✓ Gepostet auf ${account.platform}: ${result.item?.id || JSON.stringify(result)}`);
+        accountId: account.id,
+        platform: account.platform
+      };
+      if (account.platform === 'tiktok') {
+        args.privacyLevel = 'PUBLIC_TO_EVERYONE';
+        args.disabledComments = false;
+        args.disabledDuet = false;
+        args.disabledStitch = false;
+        args.isBrandedContent = false;
+        args.isYourBrand = false;
+        args.isAiGenerated = false;
+      }
+      const result = await blatoCall('blotato_create_post', args);
+      console.log(`✓ Gepostet auf ${account.platform}: ${result.item?.id || result.postSubmissionId || JSON.stringify(result)}`);
     } catch (e) {
       console.error(`✗ Fehler bei ${account.platform}: ${e.message}`);
     }
