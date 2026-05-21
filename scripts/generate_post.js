@@ -60,16 +60,26 @@ async function createSlide(text, outputPath) {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
 
-  // Font
-  ctx.fillStyle = FG;
-  ctx.font = `bold ${FONT_SIZE}px Playfair`;
-  ctx.textAlign = 'left';
-
+  // Auto-fit: shrink font until text fits vertically
   const maxWidth = W - MARGIN * 2;
-  const lines = wrapText(ctx, text, maxWidth);
-  const lineH = FONT_SIZE * LINE_SPACING;
+  const maxHeight = H - MARGIN * 2;
+  let fontSize = FONT_SIZE;
+  let lines;
+
+  while (fontSize >= 28) {
+    ctx.font = `bold ${fontSize}px Playfair`;
+    lines = wrapText(ctx, text, maxWidth);
+    const totalH = lines.length * fontSize * LINE_SPACING;
+    if (totalH <= maxHeight) break;
+    fontSize -= 4;
+  }
+
+  // Draw text centered
+  ctx.fillStyle = FG;
+  ctx.textAlign = 'left';
+  const lineH = fontSize * LINE_SPACING;
   const totalH = lines.length * lineH;
-  let y = (H - totalH) / 2 + FONT_SIZE;
+  let y = (H - totalH) / 2 + fontSize;
 
   for (const line of lines) {
     const lineWidth = ctx.measureText(line).width;
@@ -80,7 +90,7 @@ async function createSlide(text, outputPath) {
 
   const buf = await canvas.toBuffer('png');
   fs.writeFileSync(outputPath, buf);
-  console.log(`✓ Slide erstellt: ${path.basename(outputPath)}`);
+  console.log(`✓ Slide erstellt: ${path.basename(outputPath)} (${fontSize}px, ${lines.length} Zeilen)`);
 }
 
 // === PARSE MARKDOWN ===
